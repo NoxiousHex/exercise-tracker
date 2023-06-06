@@ -8,6 +8,7 @@ mongoose.connect(mongoAccess)
 const Schema = mongoose.Schema
 const bodyParser = require("body-parser")
 const uuid = require('node-uuid')
+const moment = require('moment')
 
 app.use(cors())
 app.use(express.static('public'))
@@ -67,21 +68,27 @@ app.post("/api/users/:id/exercises", (req, res) => {
 
 app.get("/api/users/:id/logs", (req, res) => {
   const id = req.params.id
-  console.log(req.query)
   let userObj = users.filter(obj => obj._id === id)
   if (req.query.from || req.query.to) {
     const from = req.query.from
     const to = req.query.to
     userObj = userObj.map(obj => {
-       const filteredLogs = obj.log.filter(logObj => new Date(logObj.date).toLocaleDateString("en-CA") >= from && new Date(logObj.date).toLocaleDateString("en-CA") <= to)
+      const filteredLogs = obj.log.filter(logObj => {
+        const rawDate = new Date(logObj.date)
+        const date = moment(rawDate).format("YYYY-MM-DD")
+        if (date >= from && date <= to) {
+          return true
+        }
+        else return false
+      })
       const newCount = filteredLogs.length
-       return {...obj, log: filteredLogs, count: newCount}
+      return {...obj, log: filteredLogs, count: newCount}
      }) 
   }
-  else if (req.query.limit) {
+  if (req.query.limit) {
     const limit = req.query.limit
-    userObj.map(obj => {
-      const filteredLogs = obj.slice(0, limit)
+    userObj = userObj.map(obj => {
+      const filteredLogs = obj.log.slice(0, limit)
       return {...obj, log: filteredLogs, count: limit}
     })
   }

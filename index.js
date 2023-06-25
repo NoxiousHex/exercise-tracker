@@ -33,15 +33,14 @@ const userSchema = new Schema({
 const User = mongoose.model("User", userSchema)
 
 // DB functions
-const createUser = async function(username, id, log = [], count = 0, done) {
+const createUser = async function(username, id, log = [], count = 0) {
   try {
     const newUser = new User({ username: username, _id: id, log: log, count: count })
 
-    output = await newUser.save()
-    console.log(output)
+    await newUser.save()
   }
   catch (err) {
-    console.log(err)
+    console.error(err)
   }
 }
 
@@ -52,7 +51,7 @@ const findUser = async function(userName) {
     return userFound
   }
   catch (err) {
-    console.log(err)
+    console.error(err)
   }
 }
 
@@ -62,7 +61,7 @@ const findUserById = async function(id) {
     return userFound
   }
   catch(err) {
-    console.log(err)
+    console.error(err)
   }
 }
 
@@ -73,7 +72,7 @@ const findAllUsers = async function() {
     return users
   }
   catch (err) {
-    console.log(err)
+    console.error(err)
   }
 }
 
@@ -87,7 +86,7 @@ const addExercise = async function(id, exercise) {
     const updatedUser = await User.findByIdAndUpdate(id, { log: newExercises, count: count +      1 })
   }
   catch(err) {
-    console.log(err)
+    console.error(err)
   }
 }
 
@@ -112,6 +111,7 @@ app.get("/api/users", async function(req, res) {
 })
 
 // respond to exercise POST req
+
 app.post("/api/users/:id/exercises", async (req, res) => {
   const id = req.params.id
   const description = req.body.description
@@ -123,6 +123,7 @@ app.post("/api/users/:id/exercises", async (req, res) => {
 })
 
 // respond to log GET request
+
 app.get("/api/users/:id/logs", async (req, res) => {
   const id = req.params.id
   const userObj = await findUserById(id)

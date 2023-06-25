@@ -25,55 +25,87 @@ const listener = app.listen(process.env.PORT || 3000, () => {
 
 // Create a schema for user
 const userSchema = new Schema({
-  usename: { type: String, required: true },
-  _id: { type: String, required: true }
+  username: { type: String, required: true },
+  _id: { type: String, required: true },
+  log: { type: [{}], required: true },
+  count: { type: Number, required: true }
 })
 const User = mongoose.model("User", userSchema)
-// temp user array
-let users = []
+
+// DB functions
+
+const createUser = async function(username, id, log = [], count = 0, done) {
+  const newUser = new User({ username: username, _id: id, log: log, count: count })
+
+  output = await newUser.save()
+  console.log(output)
+}
+
+const findUser = async function(userName) {
+  const userFound = await User.findOne({ username: userName })
+
+  return userFound
+}
+
+const findAllUsers = async function() {
+  const users = await User.find()
+
+  return users
+}
+
+const addExercise = async function(id, exercise) {
+  const user = await User.findById(id)
+  const username = user.username
+  const newExercises = [...user.log, exercise]
+  const count = user.count
+  
+  const updatedUser = await User.findByIdAndUpdate(id, {log: newExercises, count: count + 1})
+}
 
 // parse POST request body
-app.use(bodyParser.urlencoded({extended: false}))
+app.use(bodyParser.urlencoded({ extended: false }))
 
 // respond to user POST request
-app.post("/api/users", function(req, res) {
+app.post("/api/users", async function(req, res) {
   const username = req.body.username
   const id = uuid.v4()
-  const userObj = {username: username, _id: id, log:[], count: 0}
-  if (!users.find(obj => obj.username === username)) {
-     users.push(userObj) 
+  
+  if (!await findUser(username)) {
+    createUser(username, id)
   }
-  res.json(userObj)
+
+  res.json(await findUser(username))
 })
 
-app.get("/api/users", function(req, res) {
+app.get("/api/users", async function(req, res) {
+  const users = await findAllUsers()
   res.json(users)
 })
 
 // respond to exercise POST req
 
-app.post("/api/users/:id/exercises", (req, res) => {
+app.post("/api/users/:id/exercises", async (req, res) => {
   const id = req.params.id
   const description = req.body.description
   const duration = parseInt(req.body.duration)
   const date = req.body.date ? new Date(req.body.date).toDateString() : new Date().toDateString()
   const exerciseObj = { description: description, duration: duration, date: date }
-  const userObj = users.find(obj => obj._id === id)
-  const newUserObj = {username: userObj.username, _id: userObj._id, ...exerciseObj}
-  users = users.map(obj => obj._id === id ? {...obj, count: obj.count + 1, log: [...obj.log, exerciseObj]} : obj)
-  res.json(newUserObj)
+  addExercise(id, exerciseObj)
+  res.json(await User.findById(id))
 })
 
 // respond to log GET request
 
-app.get("/api/users/:id/logs", (req, res) => {
+app.get("/api/users/:id/logs", async (req, res) => {
   const id = req.params.id
-  let userObj = users.filter(obj => obj._id === id)
+  let userObj = [await User.findById(id)]
+
   if (req.query.from || req.query.to) {
-    const from = req.query.from
-    const to = req.query.to
+    const from = req.query.from || "1970-01-01"
+    const to = req.query.to || "2100-01-01"
     userObj = userObj.map(obj => {
-      const filteredLogs = obj.log.filter(logObj => {
+      const logs = obj.log
+      const filteredLogs = logs.filter(logObj => {
         const rawDate = new Date(logObj.date)
         const date = moment(rawDate).format("YYYY-MM-DD")
         if (date >= from && date <= to) {
@@ -82,14 +114,19 @@ app.get("/api/users/:id/logs", (req, res) => {
         else return false
       })
       const newCount = filteredLogs.length
-      return {...obj, log: filteredLogs, count: newCount}
-     }) 
+      console.log({ ...obj._doc, log: filteredLogs, count: newCount })
+      return { ...obj._doc, log: filteredLogs, count: newCount }
+    })
   }
   if (req.query.limit) {
     const limit = req.query.limit
     userObj = userObj.map(obj => {
       const filteredLogs = obj.log.slice(0, limit)
-      return {...obj, log: filteredLogs, count: limit}
+      if (!req.query.from && !req.query.to) {
+        return { ...obj._doc, log: filteredLogs, count: limit }
+      } else {
+        return { ...obj, log: filteredLogs, count: limit }
+      }
     })
   }
   res.json(userObj[0])

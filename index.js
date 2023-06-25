@@ -98,36 +98,28 @@ app.post("/api/users/:id/exercises", async (req, res) => {
 
 app.get("/api/users/:id/logs", async (req, res) => {
   const id = req.params.id
-  let userObj = [await User.findById(id)]
+  const userObj = await User.findById(id)
 
   if (req.query.from || req.query.to) {
     const from = req.query.from || "1970-01-01"
     const to = req.query.to || "2100-01-01"
-    userObj = userObj.map(obj => {
-      const logs = obj.log
-      const filteredLogs = logs.filter(logObj => {
-        const rawDate = new Date(logObj.date)
-        const date = moment(rawDate).format("YYYY-MM-DD")
-        if (date >= from && date <= to) {
-          return true
-        }
-        else return false
-      })
-      const newCount = filteredLogs.length
-      console.log({ ...obj._doc, log: filteredLogs, count: newCount })
-      return { ...obj._doc, log: filteredLogs, count: newCount }
+    const filteredLogs = userObj.log.filter(logObj => {
+      const rawDate = new Date(logObj.date)
+      const date = moment(rawDate).format("YYYY-MM-DD")
+      if (date >= from && date <= to) {
+        return true
+      }
+      else return false
     })
+    userObj["log"] = filteredLogs
+    userObj["count"] = filteredLogs.length
   }
+
   if (req.query.limit) {
     const limit = req.query.limit
-    userObj = userObj.map(obj => {
-      const filteredLogs = obj.log.slice(0, limit)
-      if (!req.query.from && !req.query.to) {
-        return { ...obj._doc, log: filteredLogs, count: limit }
-      } else {
-        return { ...obj, log: filteredLogs, count: limit }
-      }
-    })
+    const filteredLogs = userObj.log.slice(0, limit)
+    userObj["log"] = filteredLogs
+    userObj["count"] = filteredLogs.length
   }
-  res.json(userObj[0])
+  res.json(userObj)
 })

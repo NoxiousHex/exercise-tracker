@@ -33,33 +33,62 @@ const userSchema = new Schema({
 const User = mongoose.model("User", userSchema)
 
 // DB functions
-
 const createUser = async function(username, id, log = [], count = 0, done) {
-  const newUser = new User({ username: username, _id: id, log: log, count: count })
+  try {
+    const newUser = new User({ username: username, _id: id, log: log, count: count })
 
-  output = await newUser.save()
-  console.log(output)
+    output = await newUser.save()
+    console.log(output)
+  }
+  catch (err) {
+    console.log(err)
+  }
 }
 
 const findUser = async function(userName) {
-  const userFound = await User.findOne({ username: userName })
+  try {
+    const userFound = await User.findOne({ username: userName })
 
-  return userFound
+    return userFound
+  }
+  catch (err) {
+    console.log(err)
+  }
+}
+
+const findUserById = async function(id) {
+  try {
+    const userFound = await User.findById(id)
+    return userFound
+  }
+  catch(err) {
+    console.log(err)
+  }
 }
 
 const findAllUsers = async function() {
-  const users = await User.find()
+  try {
+    const users = await User.find()
 
-  return users
+    return users
+  }
+  catch (err) {
+    console.log(err)
+  }
 }
 
 const addExercise = async function(id, exercise) {
-  const user = await User.findById(id)
+  const user = await findUserById(id)
   const username = user.username
   const newExercises = [...user.log, exercise]
   const count = user.count
-  
-  const updatedUser = await User.findByIdAndUpdate(id, {log: newExercises, count: count + 1})
+
+  try {
+    const updatedUser = await User.findByIdAndUpdate(id, { log: newExercises, count: count +      1 })
+  }
+  catch(err) {
+    console.log(err)
+  }
 }
 
 // parse POST request body
@@ -69,7 +98,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.post("/api/users", async function(req, res) {
   const username = req.body.username
   const id = uuid.v4()
-  
+
   if (!await findUser(username)) {
     createUser(username, id)
   }
@@ -83,22 +112,20 @@ app.get("/api/users", async function(req, res) {
 })
 
 // respond to exercise POST req
-
 app.post("/api/users/:id/exercises", async (req, res) => {
   const id = req.params.id
   const description = req.body.description
   const duration = parseInt(req.body.duration)
   const date = req.body.date ? new Date(req.body.date).toDateString() : new Date().toDateString()
   const exerciseObj = { description: description, duration: duration, date: date }
-  addExercise(id, exerciseObj)
-  res.json(await User.findById(id))
+  await addExercise(id, exerciseObj)
+  res.json(await findUserById(id))
 })
 
 // respond to log GET request
-
 app.get("/api/users/:id/logs", async (req, res) => {
   const id = req.params.id
-  const userObj = await User.findById(id)
+  const userObj = await findUserById(id)
 
   if (req.query.from || req.query.to) {
     const from = req.query.from || "1970-01-01"
